@@ -25,9 +25,10 @@ jobs:
     name: Run Markdownlint
     runs-on: ubuntu-latest
     steps:
+      # ---
       - name: Checkout repository
-        uses: actions/checkout@v4
-
+        uses: actions/checkout@v7
+      # ---
       - name: Run markdownlint-cli2
         run: |
           npx markdownlint-cli2 "**/*.md"
