@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       openwrt_arch:
-        description: 'Target architecture to compile (or "all")'
+        description: 'Target architecture to compile'
         required: true
         default: 'aarch64_cortex-a53'
         type: choice
@@ -18,7 +18,7 @@ on:
           - 'mipsel_24kc'
           - 'x86_64'
       openwrt_version:
-        description: 'Upstream OpenWRT version'
+        description: 'Upstream OpenWRT version (like x.y.z)'
         required: true
         default: 'main'
         type: string
@@ -91,7 +91,7 @@ jobs:
           push: true
           platforms: linux/amd64
           build-args: |
-            OPENWRT_BRANCH=${{ inputs.openwrt_version }}
+            OPENWRT_BRANCH=v${{ inputs.openwrt_version }}
             OPENWRT_CONFIG_TARGET_ARCH_PACKAGES=${{ inputs.openwrt_arch }}
           tags: ${{ steps.docker-meta.outputs.tags }}
           labels: ${{ steps.docker-meta.outputs.labels }}
