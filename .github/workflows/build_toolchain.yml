@@ -1,0 +1,99 @@
+name: Build Toolchain Images
+
+on:
+  workflow_dispatch:
+    inputs:
+      openwrt_arch:
+        description: 'Target architecture to compile (or "all")'
+        required: true
+        default: 'aarch64_cortex-a53'
+        type: choice
+        options:
+          - 'aarch64_cortex-a53'
+          - 'aarch64_generic'
+          - 'aarch64_cortex-a72'
+          - 'arm_cortex-a7_neon-vfpv4'
+          - 'arm_cortex-a15_neon-vfpv4'
+          - 'mips_24kc'
+          - 'mipsel_24kc'
+          - 'x86_64'
+      openwrt_version:
+        description: 'Upstream OpenWRT version'
+        required: true
+        default: 'main'
+        type: string
+      openwrt_latest:
+        description: 'Tag image as latest'
+        type: boolean
+        required: false
+        default: false
+
+env:
+  docker_image: 'boardport/openwrt-toolchain'
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-toolchain:
+    name: Build Toolchain (v${{ inputs.openwrt_version }} / ${{ inputs.openwrt_arch }})
+    runs-on: ubuntu-latest
+    steps:
+      # ---
+      - name: Checkout repository
+        id: checkout-repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      # ---
+      - name: Setup QEMU
+        id: setup-qemu
+        uses: docker/setup-qemu-action@v3
+      # ---
+      - name: Setup Docker Buildx
+        id: setup-buildx
+        uses: docker/setup-buildx-action@v3
+      # ---
+      - name: Log in to GitHub Container Registry
+        id: login-ghcr
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # ---
+      - name: Extract metadata (tags, labels) for Docker
+        id: docker-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ghcr.io/${{ env.docker_image }}
+          tags: |
+            type=raw,value=${{ inputs.openwrt_version }}-${{ inputs.openwrt_arch }}
+            type=raw,value=${{ inputs.openwrt_arch }},enable=${{ inputs.openwrt_latest == true }}
+            type=raw,value=latest,enable=${{ inputs.openwrt_latest == true && inputs.openwrt_arch == 'aarch64_cortex-a53' }}
+          labels: |
+            org.opencontainers.image.title=${{ env.docker_image }}:${{ inputs.openwrt_version }}-${{ inputs.openwrt_arch }}
+            org.opencontainers.image.description=Precompiled OpenWrt cross-toolchain and host tools for ${{ inputs.openwrt_arch }}
+            org.opencontainers.image.vendor=BoardPort Community <boardport@proton.me>
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.url=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.licenses=MIT
+      # ---
+      - name: Build and push Docker image
+        id: docker-build
+        uses: docker/build-push-action@v6
+        with:
+          context: ./docker
+          file: ./docker/images/toolchain/Dockerfile.debian
+          push: true
+          platforms: linux/amd64
+          build-args: |
+            OPENWRT_BRANCH=${{ inputs.openwrt_version }}
+            OPENWRT_CONFIG_TARGET_ARCH_PACKAGES=${{ inputs.openwrt_arch }}
+          tags: ${{ steps.docker-meta.outputs.tags }}
+          labels: ${{ steps.docker-meta.outputs.labels }}
+          annotations: ${{ steps.docker-meta.outputs.annotations }}
+          cache-from: type=gha,scope=toolchain-${{ inputs.openwrt_arch }}
+          cache-to: type=gha,mode=max,scope=toolchain-${{ inputs.openwrt_arch }}

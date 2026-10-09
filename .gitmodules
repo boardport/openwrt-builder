@@ -1,0 +1,6 @@
+[submodule "overlay"]
+	path = overlay
+	url = git@github.com:boardport/openwrt-overlay.git
+[submodule "docker"]
+	path = docker
+	url = git@github.com:boardport/openwrt-docker.git
